@@ -1,65 +1,80 @@
-import Image from "next/image";
+import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 
-export default function Home() {
+// FORCE NEXT.JS TO BYPASS STATIC CACHING AND PULL REAL-TIME LAYOUT CONFIGURATIONS
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
+
+const LANDING_BG_KEY = 'landing_background';
+
+export default async function LandingPage() {
+  // 1. Fetch only the background image configuration directly on the server
+  const { data: contentData } = await supabase
+    .from("site_content")
+    .select("key, value")
+    .eq("key", LANDING_BG_KEY)
+    .single();
+
+  const backgroundUrl = contentData?.value ?? '';
+
+  // 2. Fetch the latest additions to your inventory
+  const { data: products } = await supabase
+    .from("products")
+    .select("id, name, base_price, images")
+    .order("created_at", { ascending: false })
+    .limit(6);
+
+  const activeProducts = products ?? [];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="bg-zinc-950 text-white min-h-screen font-body grain selection:bg-pink-brand selection:text-white">
+      
+      {/* HIGH-END BRAND HERO CANVAS */}
+      <div className="relative min-h-screen flex flex-col overflow-hidden z-0 bg-black">
+        
+        {/* Cinematic Backdrop Layer */}
+        <div className="absolute inset-0 z-0 animate-fade-in pointer-events-none">
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out"
+            style={{
+              backgroundImage: backgroundUrl
+                ? `url('${backgroundUrl}')`
+                : "url('/fallback-editorial-dark.jpg')",
+              opacity: 1, 
+            }}
+          />
+          {/* Subtle lighting mask configuration to preserve high-contrast text layout */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black" />
+        </div>
+
+        {/* Brand Meta Messaging */}
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 z-10 select-none">
+          <div className="mb-8">
+            <Link href="/" className="text-4xl font-black tracking-tighter text-white font-display">
+              
+            </Link>
+          </div>
+
+          <p className="text-pink-brand uppercase tracking-[0.5em] text-[10px] font-black mb-3">
+            
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+          <h1 className="text-white text-6xl sm:text-9xl font-black tracking-tight mb-6 leading-none uppercase font-display mix-blend-difference drop-shadow-[0_8px_0_#000]">
+  BEAT THE HEAT
+</h1>
+
+
+          <Link
+            href="/products"
+            className="bg-white text-black px-12 py-5 rounded-full font-black uppercase text-xs tracking-widest hover:bg-claret hover:text-white transition-all transform hover:scale-105 shadow-2xl"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            SHOP COLLECTION 
+          </Link>
         </div>
-      </main>
+      </div>
+
+     
+
     </div>
   );
 }
