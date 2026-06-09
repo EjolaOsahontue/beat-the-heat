@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KAVALI | Premium Streetwear",
-  description: "Luxury apparel for the bold. High-end streetwear designed in Lagos.",
+  title: "BTH +",
+  description: "BTH APPARELS",
 };
 
 export default function RootLayout({
