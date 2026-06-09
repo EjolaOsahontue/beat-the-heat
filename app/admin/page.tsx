@@ -34,13 +34,11 @@ export default function AdminSiteContent() {
     [galleryImages]
   );
 
-  // Read config records completely fresh from the database without catching old cached data
   const fetchSiteContent = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // BUSTING INTERNALS: We append a random query parameter or select fresh to ignore client cache pools
       const { data, error: dbError } = await supabase
         .from('site_content')
         .select('*')
@@ -68,7 +66,6 @@ export default function AdminSiteContent() {
       setGalleryImages(gallery);
       setLandingBg(landingBgValue);
 
-      // Now grab raw backgrounds directly from storage bucket listings
       await refreshLandingImagesBucket();
 
     } catch (e: any) {
@@ -120,7 +117,6 @@ export default function AdminSiteContent() {
     return url.slice(idx + marker.length);
   };
 
-  // REMOVE INSTANT PROCESS: Wipes the index reference, updates database, and cleans the object out of storage bucket
   const removeImage = async (idx: number) => {
     const urlToRemove = galleryImages[idx];
     if (!urlToRemove) return;
@@ -131,11 +127,9 @@ export default function AdminSiteContent() {
     
     setSaving(true);
     try {
-      // 1. Instantly write updated image link pool state into the database array
       await upsert(GALLERY_KEY, JSON.stringify(updatedGallery));
       setGalleryImages(updatedGallery);
 
-      // 2. Clear out original physical image object asset safely out of Supabase asset bucket 
       const fileName = extractFileName(urlToRemove, 'gallery-images');
       if (fileName) {
         await supabase.storage.from('gallery-images').remove([fileName]);
@@ -203,7 +197,7 @@ export default function AdminSiteContent() {
       await upsert(LANDING_BG_KEY, landingBg);
 
       alert('All changes saved successfully.');
-      await fetchSiteContent(); // Re-read everything fresh immediately
+      await fetchSiteContent();
     } catch (e: any) {
       setError(e?.message ?? 'Failed to compile changes.');
     } finally {
@@ -212,29 +206,29 @@ export default function AdminSiteContent() {
   };
 
   return (
-    <div className="max-w-5xl p-8 pt-24 mx-auto grain text-white bg-black min-h-screen">
+    <div className="max-w-5xl p-4 sm:p-8 pt-20 sm:pt-24 mx-auto grain text-white bg-black min-h-screen">
       
       {/* HEADER ROW */}
-      <div className="flex items-center justify-between mb-12 border-b pb-6 border-zinc-900">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 sm:mb-12 border-b pb-6 border-zinc-900">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tight italic font-display">
+          <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight italic font-display">
             Site Content
           </h1>
-          <p className="text-zinc-500 font-bold text-xs mt-1 uppercase tracking-widest">
+          <p className="text-zinc-500 font-bold text-[10px] sm:text-xs mt-1 uppercase tracking-widest">
             Manage Landing Page, Gallery, and About Us Configurations.
           </p>
         </div>
 
         <Link
           href="/"
-          className="bg-white text-black px-6 py-3 rounded-full font-black uppercase text-xs tracking-widest hover:bg-zinc-200 transition-all"
+          className="w-full sm:w-auto text-center bg-white text-black px-6 py-3 rounded-full font-black uppercase text-xs tracking-widest hover:bg-zinc-200 transition-all"
         >
           Back
         </Link>
       </div>
 
       {error && (
-        <div className="mb-6 bg-red-950 border border-red-800 text-red-200 rounded-2xl p-4 font-bold text-xs uppercase tracking-widest">
+        <div className="mb-6 bg-red-950 border border-red-800 text-red-200 rounded-2xl p-4 font-bold text-xs uppercase tracking-widest breakdown-words">
           {error}
         </div>
       )}
@@ -244,35 +238,35 @@ export default function AdminSiteContent() {
           <Loader2 className="animate-spin text-white" size={32} />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 gap-6 sm:gap-8">
           
           {/* LANDING BACKGROUND SECTION */}
-          <section className="bg-zinc-950 border border-zinc-900 p-8 rounded-[2rem] lg:col-span-2 shadow-2xl">
+          <section className="bg-zinc-950 border border-zinc-900 p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl">
             <div className="mb-6">
-              <h2 className="font-black uppercase text-xl font-display tracking-wide text-white">
+              <h2 className="font-black uppercase text-lg sm:text-xl font-display tracking-wide text-white">
                 Landing Page Background
               </h2>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-8 bg-black p-4 rounded-2xl border border-zinc-900">
+            <div className="flex flex-col md:flex-row gap-4 mb-8 bg-black p-4 rounded-2xl border border-zinc-900">
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setLandingFile(e.target.files?.[0] || null)}
-                className="flex-1 p-2 text-xs text-zinc-500 font-bold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:uppercase file:bg-white file:text-black"
+                className="w-full flex-1 p-2 text-xs text-zinc-500 font-bold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:uppercase file:bg-white file:text-black cursor-pointer"
               />
               <button
                 type="button"
                 onClick={handleLandingUpload}
                 disabled={!landingFile || bucketLoading}
-                className="bg-white text-black px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+                className="w-full md:w-auto bg-white text-black px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest disabled:opacity-30 transition-all flex items-center justify-center gap-2"
               >
                 {bucketLoading && <Loader2 className="animate-spin" size={14} />}
                 Upload Image
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {landingBucketImages.map((url, idx) => {
                 const isActive = landingBg === url;
                 return (
@@ -310,9 +304,9 @@ export default function AdminSiteContent() {
           </section>
 
           {/* ACTIVE GALLERY SYSTEM */}
-          <section className="bg-zinc-950 border border-zinc-900 p-8 rounded-[2rem] lg:col-span-2">
+          <section className="bg-zinc-950 border border-zinc-900 p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem]">
             <div className="mb-4">
-              <h2 className="font-black uppercase text-xl font-display text-white tracking-wider">
+              <h2 className="font-black uppercase text-lg sm:text-xl font-display text-white tracking-wider">
                 Gallery
               </h2>
               <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
@@ -320,12 +314,12 @@ export default function AdminSiteContent() {
               </p>
             </div>
 
-            <div className="flex gap-4 bg-black p-4 rounded-2xl border border-zinc-900 mb-6">
+            <div className="flex flex-col md:flex-row gap-4 bg-black p-4 rounded-2xl border border-zinc-900 mb-6">
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                className="flex-1 p-2 bg-black border border-zinc-900 text-zinc-500 rounded-xl text-xs font-bold"
+                className="w-full flex-1 p-2 bg-black border border-zinc-900 text-zinc-500 rounded-xl text-xs font-bold cursor-pointer"
               />
               <button
                 onClick={async () => {
@@ -341,39 +335,39 @@ export default function AdminSiteContent() {
 
                   const { data } = supabase.storage.from('gallery-images').getPublicUrl(fileName);
                   
-                  // Instantly update the data pool and push changes straight to the database table row
                   const updatedList = [...parsedGallery, data.publicUrl];
                   await upsert(GALLERY_KEY, JSON.stringify(updatedList));
                   setGalleryImages(updatedList);
                   setImageFile(null);
                   alert("Image appended and saved!");
                 }}
-                className="bg-white text-black px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest"
+                className="w-full md:w-auto bg-white text-black px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-center"
               >
                 Upload To Gallery
               </button>
             </div>
 
-            {/* LIVE DATA SYNC VISUALIZATION CONTAINER */}
             {parsedGallery.length === 0 ? (
               <p className="text-zinc-600 font-bold text-xs uppercase tracking-widest text-center py-8 border border-dashed border-zinc-800 rounded-2xl">
                 No active layout assets saved in database.
               </p>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {parsedGallery.map((url, idx) => (
-                  <div key={idx} className="border border-zinc-900 rounded-xl overflow-hidden relative group bg-black flex items-center justify-center">
+                  <div key={idx} className="border border-zinc-900 rounded-xl overflow-hidden relative group bg-black flex flex-col sm:flex-row items-center justify-center min-h-[160px]">
                     <img src={url} alt="" className="w-full h-auto object-contain max-h-40 bg-zinc-950" />
                     
-                    {/* Hover state for clean removal actions */}
-                    <button
-                      type="button"
-                      onClick={() => removeImage(idx)}
-                      className="absolute inset-0 bg-black/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-red-500 font-black text-[10px] uppercase tracking-wider gap-2 cursor-pointer"
-                    >
-                      <Trash2 size={16} />
-                      <span>Delete File</span>
-                    </button>
+                    {/* On Desktop: dynamic hover state. On Mobile: visible banner overlay at bottom or full screen touch trigger */}
+                    <div className="absolute inset-0 bg-black/95 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 opacity-100 relative sm:absolute w-full border-t border-zinc-900 sm:border-0">
+                      <button
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="w-full py-2 sm:py-0 flex flex-row sm:flex-col items-center justify-center text-red-500 font-black text-[10px] uppercase tracking-wider gap-2 cursor-pointer"
+                      >
+                        <Trash2 size={14} />
+                        <span>Delete File</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -381,14 +375,14 @@ export default function AdminSiteContent() {
           </section>
 
           {/* ABOUT US TEXT SECTION */}
-          <section className="bg-zinc-950 border border-zinc-900 p-8 rounded-[2rem] lg:col-span-2">
-            <h2 className="font-black uppercase text-xl font-display text-white tracking-wider mb-4">
+          <section className="bg-zinc-950 border border-zinc-900 p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem]">
+            <h2 className="font-black uppercase text-lg sm:text-xl font-display text-white tracking-wider mb-4">
               About Us
             </h2>
             <textarea
               value={aboutText}
               onChange={(e) => setAboutText(e.target.value)}
-              className="w-full min-h-[160px] p-4 bg-black border border-zinc-900 text-white rounded-2xl font-bold text-sm focus:outline-none focus:border-zinc-700"
+              className="w-full min-h-[160px] p-4 bg-black border border-zinc-900 text-white rounded-2xl font-bold text-sm focus:outline-none focus:border-zinc-700 resize-y"
               placeholder="Write store description..."
             />
           </section>
@@ -397,11 +391,11 @@ export default function AdminSiteContent() {
       )}
 
       {/* FOOTER ACTION PANEL */}
-      <div className="mt-12 flex justify-end border-t pt-6 border-zinc-900">
+      <div className="mt-8 sm:mt-12 flex justify-end border-t pt-6 border-zinc-900">
         <button
           onClick={handleSave}
           disabled={saving || loading}
-          className="bg-claret text-white px-12 py-4 rounded-full font-black uppercase text-xs tracking-widest flex items-center gap-2 hover:bg-red-700 transition-all shadow-xl disabled:opacity-40"
+          className="w-full sm:w-auto bg-claret text-white px-12 py-4 rounded-full font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 hover:bg-red-700 transition-all shadow-xl disabled:opacity-40"
         >
           {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
           Save Content Changes
