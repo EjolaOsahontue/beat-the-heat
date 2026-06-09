@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 // FORCE NEXT.JS TO BYPASS STATIC CACHING AND PULL FRESH DATA FROM SUPABASE ON EVERY PAGE LOAD
 export const revalidate = 0; 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+
 
 const GALLERY_KEY = 'gallery_images';
 

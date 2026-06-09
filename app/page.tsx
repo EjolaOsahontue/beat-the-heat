@@ -4,7 +4,7 @@ import Link from "next/link";
 // FORCE NEXT.JS TO BYPASS STATIC CACHING AND PULL REAL-TIME LAYOUT CONFIGURATIONS
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+
 
 const LANDING_BG_KEY = 'landing_background';
 

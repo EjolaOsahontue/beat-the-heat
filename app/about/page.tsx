@@ -4,7 +4,7 @@ import Link from 'next/link';
 // FORCE NEXT.JS TO BYPASS STATIC CACHING AND PULL FRESH DATA FROM SUPABASE ON EVERY REQUEST
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+
 
 const ABOUT_KEY = 'about_us';
 
