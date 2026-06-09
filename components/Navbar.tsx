@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   ShoppingBag,
   User,
@@ -268,9 +269,16 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
 
           {/* Logo */}
-          <Link href="/" className="text-2xl font-black tracking-tighter italic">
-            BTH+
-          </Link>
+<Link href="/" className="flex items-center">
+  <Image
+    src="/logo.png"
+    alt="BTH+ Logo"
+    width={140}
+    height={140}
+    priority
+    className="h-26 w-auto object-contain"
+  />
+</Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex gap-8 text-sm font-bold uppercase tracking-widest">
