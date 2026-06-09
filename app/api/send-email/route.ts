@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { sendOrderEmail } from "@/lib/email";
 
+export const runtime = 'edge';
+
 export async function POST(req: Request) {
   console.log("📩 /api/send-email HIT");
 
