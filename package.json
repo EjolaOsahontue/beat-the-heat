@@ -1,7 +1,8 @@
 {
-  "name": "kivali-store",
+  "name": "bth-plus-store",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@10.0.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,9 +10,15 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "next": "16.2.6",
+    "@getbrevo/brevo": "^5.0.4",
+    "@supabase/supabase-js": "^2.105.4",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.14.0",
+    "next": "^16.2.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "resend": "^6.12.3",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,6 +28,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "turbo": "^2.9.16",
     "typescript": "^5"
   }
 }

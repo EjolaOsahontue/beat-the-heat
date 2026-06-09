@@ -59,9 +59,9 @@ export default async function LandingPage() {
             
           </p>
 
-          <h1 className="text-white text-6xl sm:text-9xl font-black tracking-tight mb-6 leading-none uppercase font-display mix-blend-difference drop-shadow-[0_8px_0_#000]">
-  BEAT THE HEAT
-</h1>
+          <h1 className="text-white text-6xl sm:text-9xl font-black tracking-tight mb-6 leading-none uppercase font-display mix-blend-difference drop-shadow-[0_10px_10px_rgba(0,0,0,1)]">
+            BEAT THE HEAT
+          </h1>
 
 
           <Link
