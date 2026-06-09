@@ -1,8 +1,4 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import AdminLogoutButton from "@/components/AdminLogoutButton";
 import {
   LayoutDashboard,
@@ -12,80 +8,65 @@ import {
   Settings,
   Truck,
   Layers,
-  Menu,
-  X,
+  PanelTop,
 } from "lucide-react";
 
-export default function MobileAdminNav() {
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-
-  const links = [
-    { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, section: "Core" },
-    { href: "/admin", label: "Site Content", icon: Layers, section: "Core" },
-    { href: "/admin/inventory", label: "Inventory Hub", icon: Package, section: "Core" },
-    { href: "/admin/orders", label: "Orders", icon: ShoppingCart, section: "Operations" },
-    { href: "/admin/shipping", label: "Shipping", icon: Truck, section: "Operations" },
-    { href: "/admin/customers", label: "Customers", icon: Users, section: "Operations" },
-    { href: "/admin/settings", label: "Settings", icon: Settings, section: "Operations" },
-  ];
-
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      {/* Mobile Top Bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-[200] bg-black text-white px-5 h-16 flex items-center justify-between">
-        <h2 className="text-xl font-black tracking-tighter italic">BTH+ ADMIN</h2>
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="p-2 rounded-xl hover:bg-zinc-800 transition"
-        >
-          {open ? <X size={22} /> : <Menu size={22} />}
-        </button>
-      </div>
+    <div className="flex min-h-screen bg-white">
+      {/* Sidebar */}
+      <aside className="w-72 bg-black text-white p-8 sticky top-0 h-screen shrink-0 flex flex-col justify-between">
+        <div>
+          <h2 className="text-3xl font-black mb-12 tracking-tighter italic leading-none">
+            BTH+ <br /> <span className="text-white">ADMIN</span>
+          </h2>
 
-      {/* Mobile Menu Overlay */}
-      {open && (
-        <div className="lg:hidden fixed inset-0 z-[190] bg-black text-white pt-16 flex flex-col">
-          <nav className="flex-1 overflow-y-auto px-5 py-6 space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">Core</p>
+          <nav className="space-y-1">
+            <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-4">Core</p>
 
-            {links.filter(l => l.section === "Core").map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 py-3 px-4 rounded-xl transition font-bold uppercase italic text-xs tracking-wider ${
-                  pathname === href ? "bg-zinc-800 text-white" : "hover:bg-zinc-900 text-zinc-400"
-                }`}
-              >
-                <Icon size={18} /> {label}
-              </Link>
-            ))}
+            <Link href="/admin/dashboard" className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-zinc-900 transition font-bold uppercase italic text-xs tracking-wider">
+              <LayoutDashboard size={18} /> Dashboard
+            </Link>
 
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3 mt-8">Operations</p>
+            <Link href="/admin" className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-zinc-900 transition font-bold uppercase italic text-xs tracking-wider text-white">
+              <Layers size={18} /> Site Content
+            </Link>
 
-            {links.filter(l => l.section === "Operations").map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 py-3 px-4 rounded-xl transition font-bold uppercase italic text-xs tracking-wider ${
-                  pathname === href ? "bg-zinc-800 text-white" : "hover:bg-zinc-900 text-zinc-400"
-                }`}
-              >
-                <Icon size={18} /> {label}
-              </Link>
-            ))}
+           
+
+            <Link href="/admin/inventory" className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-zinc-900 transition font-bold uppercase italic text-xs tracking-wider">
+              <Package size={18} /> Inventory Hub
+            </Link>
+
+            <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-4 mt-8">Operations</p>
+
+            <Link href="/admin/orders" className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-zinc-900 transition font-bold uppercase italic text-xs tracking-wider text-white">
+              <ShoppingCart size={18} /> Orders
+            </Link>
+
+            <Link href="/admin/shipping" className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-zinc-900 transition font-bold uppercase italic text-xs tracking-wider text-white">
+              <Truck size={18} /> Shipping
+            </Link>
+
+            <Link href="/admin/customers" className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-zinc-900 transition font-bold uppercase italic text-xs tracking-wider text-white">
+              <Users size={18} /> Customers
+            </Link>
           </nav>
-
-          <div className="px-5 pb-8 border-t border-zinc-800 pt-4">
-            <AdminLogoutButton />
-          </div>
         </div>
-      )}
 
-      {/* Spacer for mobile top bar */}
-      <div className="lg:hidden h-16" />
-    </>
+        <div>
+          <hr className="border-zinc-800 mb-6" />
+          <Link href="/admin/settings" className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-zinc-900 transition font-bold uppercase italic text-xs tracking-wider text-white">
+            <Settings size={18} /> Settings
+          </Link>
+          <AdminLogoutButton />
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="min-h-full bg-zinc-50/50">{children}</div>
+      </main>
+    </div>
   );
 }
