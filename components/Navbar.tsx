@@ -223,6 +223,7 @@ export default function Navbar() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -240,7 +241,6 @@ export default function Navbar() {
         setShowDropdown(false);
       }
     };
-
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -249,7 +249,6 @@ export default function Navbar() {
 
   const handleUserClick = () => {
     if (!mounted || authLoading) return;
-
     if (user) {
       setShowDropdown((v) => !v);
     } else {
@@ -270,26 +269,34 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-[100] bg-white border-b border-border shadow-sm h-20 text-foreground">
-        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
+      <header className="fixed top-0 left-0 right-0 z-[100] bg-white border-b border-border shadow-sm text-foreground">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+
+          {/* Logo */}
           <Link href="/" className="text-2xl font-black tracking-tighter italic">
-            BTH+ 
+            BTH+
           </Link>
 
+          {/* Desktop Nav */}
           <div className="hidden md:flex gap-8 text-sm font-bold uppercase tracking-widest">
             <Link href="/products" className="hover:text-claret transition-colors">Shop</Link>
             <Link href="/gallery" className="hover:text-claret transition-colors">Gallery</Link>
             <Link href="/about" className="hover:text-claret transition-colors">About</Link>
           </div>
 
-          <div className="flex items-center gap-6">
-            {/* User Dropdown Trigger */}
+          {/* Right Icons */}
+          <div className="flex items-center gap-4">
+
+            {/* User Dropdown */}
             <div className="relative" ref={dropdownRef}>
-              <button onClick={handleUserClick} className="flex items-center gap-2 hover:text-claret transition-colors">
+              <button
+                onClick={handleUserClick}
+                className="flex items-center gap-2 hover:text-claret transition-colors"
+              >
                 <User size={20} />
                 {mounted && user && (
                   <>
-                    <span className="text-xs font-black">{firstName}</span>
+                    <span className="hidden sm:block text-xs font-black">{firstName}</span>
                     <ChevronDown
                       size={12}
                       className={`transition-transform duration-200 ${showDropdown ? "rotate-180" : ""}`}
@@ -304,14 +311,12 @@ export default function Navbar() {
                     <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Signed in as</p>
                     <p className="text-xs truncate font-black">{user.email}</p>
                   </div>
-
                   <Link
                     href="/account"
                     className="flex gap-2 p-3 text-xs font-black uppercase tracking-wider hover:bg-surface-muted transition-colors"
                   >
                     <Package size={16} /> Orders
                   </Link>
-
                   <button
                     onClick={handleSignOut}
                     className="flex gap-2 p-3 text-xs font-black uppercase tracking-wider w-full text-left hover:bg-surface-muted text-claret transition-colors"
@@ -322,8 +327,11 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Cart Button */}
-            <button onClick={() => setIsCartOpen(true)} className="relative hover:text-claret transition-colors">
+            {/* Cart */}
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="relative hover:text-claret transition-colors"
+            >
               <ShoppingBag size={20} />
               {mounted && cartCount > 0 && (
                 <span className="absolute -top-2 -right-2 bg-foreground text-background text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-background">
@@ -331,8 +339,45 @@ export default function Navbar() {
                 </span>
               )}
             </button>
+
+            {/* Hamburger (mobile only) */}
+            <button
+              className="md:hidden flex flex-col gap-1.5 p-1"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+            >
+              <span className={`block w-5 h-0.5 bg-foreground transition-all duration-300 ${mobileMenuOpen ? "rotate-45 translate-y-2" : ""}`} />
+              <span className={`block w-5 h-0.5 bg-foreground transition-all duration-300 ${mobileMenuOpen ? "opacity-0" : ""}`} />
+              <span className={`block w-5 h-0.5 bg-foreground transition-all duration-300 ${mobileMenuOpen ? "-rotate-45 -translate-y-2" : ""}`} />
+            </button>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-border px-6 py-6 flex flex-col gap-5">
+            <Link
+              href="/products"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-sm font-black uppercase tracking-widest hover:text-claret transition-colors"
+            >
+              Shop
+            </Link>
+            <Link
+              href="/gallery"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-sm font-black uppercase tracking-widest hover:text-claret transition-colors"
+            >
+              Gallery
+            </Link>
+            <Link
+              href="/about"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-sm font-black uppercase tracking-widest hover:text-claret transition-colors"
+            >
+              About
+            </Link>
+          </div>
+        )}
       </header>
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
