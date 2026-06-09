@@ -66,7 +66,6 @@ function AuthModal({ onClose }: { onClose: () => void }) {
           className="absolute inset-0 bg-foreground/60 backdrop-blur-sm"
           onClick={onClose}
         />
-
         <div className="relative bg-surface rounded-[2rem] p-8 w-full max-w-sm shadow-2xl text-center border border-border">
           <button
             onClick={onClose}
@@ -97,11 +96,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
             onClick={() => {
               setIsRegistered(false);
               setMode("login");
-              setForm({
-                email: registeredEmail,
-                password: "",
-                fullName: "",
-              });
+              setForm({ email: registeredEmail, password: "", fullName: "" });
             }}
             className="w-full bg-foreground text-background py-4 rounded-2xl font-black uppercase tracking-widest text-sm transition-all duration-300 hover:opacity-90 active:scale-95"
           >
@@ -342,12 +337,12 @@ export default function Navbar() {
 
             {/* Hamburger (mobile only) */}
             <button
-              className="md:hidden flex flex-col gap-1.5 p-1"
+              className="md:hidden flex flex-col gap-[6px] p-1"
               onClick={() => setMobileMenuOpen((v) => !v)}
             >
-              <span className={`block w-5 h-0.5 bg-foreground transition-all duration-300 ${mobileMenuOpen ? "rotate-45 translate-y-2" : ""}`} />
-              <span className={`block w-5 h-0.5 bg-foreground transition-all duration-300 ${mobileMenuOpen ? "opacity-0" : ""}`} />
-              <span className={`block w-5 h-0.5 bg-foreground transition-all duration-300 ${mobileMenuOpen ? "-rotate-45 -translate-y-2" : ""}`} />
+              <span className={`block w-6 h-[2px] bg-black transition-all duration-300 origin-center ${mobileMenuOpen ? "rotate-45 translate-y-[8px]" : ""}`} />
+              <span className={`block w-6 h-[2px] bg-black transition-all duration-300 ${mobileMenuOpen ? "opacity-0" : ""}`} />
+              <span className={`block w-6 h-[2px] bg-black transition-all duration-300 origin-center ${mobileMenuOpen ? "-rotate-45 -translate-y-[8px]" : ""}`} />
             </button>
           </div>
         </div>
@@ -358,21 +353,21 @@ export default function Navbar() {
             <Link
               href="/products"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-sm font-black uppercase tracking-widest hover:text-claret transition-colors"
+              className="text-sm font-black uppercase tracking-widest text-black hover:text-claret transition-colors"
             >
               Shop
             </Link>
             <Link
               href="/gallery"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-sm font-black uppercase tracking-widest hover:text-claret transition-colors"
+              className="text-sm font-black uppercase tracking-widest text-black hover:text-claret transition-colors"
             >
               Gallery
             </Link>
             <Link
               href="/about"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-sm font-black uppercase tracking-widest hover:text-claret transition-colors"
+              className="text-sm font-black uppercase tracking-widest text-black hover:text-claret transition-colors"
             >
               About
             </Link>
