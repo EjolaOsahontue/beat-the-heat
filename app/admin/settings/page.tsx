@@ -23,7 +23,7 @@ export default function AdminSettings() {
             <CreditCard className="text-zinc-400" />
             <div>
               <p className="font-black uppercase text-sm">Payment Gateway</p>
-              <p className="text-xs text-zinc-400 font-bold">Paystack (Live Mode)</p>
+              <p className="text-xs text-zinc-400 font-bold">FLUTTERWAVE (Live Mode)</p>
             </div>
           </div>
           <button className="text-[10px] font-black bg-zinc-100 px-4 py-2 rounded-full uppercase">Configure</button>

@@ -10,7 +10,7 @@ import { ChevronLeft, Loader2, User } from "lucide-react";
 
 declare global {
   interface Window {
-    PaystackPop: any;
+    FlutterwaveCheckout: any;
   }
 }
 
@@ -71,8 +71,12 @@ export default function CheckoutPage() {
   }, [user]);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && window.FlutterwaveCheckout) {
+      setScriptLoaded(true);
+      return;
+    }
     const script = document.createElement("script");
-    script.src = "https://js.paystack.co/v1/inline.js";
+    script.src = "https://checkout.flutterwave.com/v3.js";
     script.async = true;
     script.onload = () => setScriptLoaded(true);
     document.body.appendChild(script);
@@ -104,17 +108,24 @@ export default function CheckoutPage() {
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!scriptLoaded || !window.PaystackPop) {
+    if (!scriptLoaded || !window.FlutterwaveCheckout) {
       alert("Payment gateway is still loading. Please try again.");
       return;
     }
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.address || !formData.phone) {
+
+    if (
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.email ||
+      !formData.address ||
+      !formData.phone
+    ) {
       alert("Please fill in all delivery details.");
       return;
     }
 
-    const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
-    if (!paystackKey) {
+    const flwKey = process.env.NEXT_PUBLIC_FLW_PUBLIC_KEY;
+    if (!flwKey) {
       alert("Payment configuration error. Please contact support.");
       return;
     }
@@ -122,59 +133,85 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      const handler = window.PaystackPop.setup({
-        key: paystackKey,
-        email: formData.email,
-        amount: Math.round(total * 100),
+      window.FlutterwaveCheckout({
+        public_key: flwKey,
+        tx_ref: `BTH-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
+        amount: total,
         currency: "NGN",
-        metadata: {
-          customer_name: `${formData.firstName} ${formData.lastName}`,
-          address: formData.address,
-          phone: formData.phone,
-          items: cart,
+        payment_options: "card,banktransfer,ussd",
+        customer: {
+          email: formData.email,
+          phone_number: formData.phone,
+          name: `${formData.firstName} ${formData.lastName}`,
         },
-        onClose: () => {
+        customizations: {
+          title: "BTH Apparels",
+          description: `Order of ${cart.length} item(s)`,
+          logo: "/logo.png",
+        },
+        meta: {
+          address: formData.address,
+          items: JSON.stringify(cart),
+        },
+        onclose: () => {
           setLoading(false);
         },
         callback: (response: any) => {
+          if (
+            response.status !== "successful" &&
+            response.status !== "completed"
+          ) {
+            setLoading(false);
+            alert("Payment was not completed. Please try again.");
+            return;
+          }
+
           setLoading(false);
 
           (async () => {
             try {
-              // 1. Insert into 'orders' table
+              const paymentReference = response.tx_ref;
+              const transactionId = String(response.transaction_id);
+
+              // 1. Insert into orders table
               const { data: orderData, error: orderError } = await supabase
                 .from("orders")
-                .insert([{
-                  customer_email: formData.email,
-                  customer_name: `${formData.firstName} ${formData.lastName}`,
-                  total_amount: total,
-                  currency: "NGN",
-                  payment_method: "paystack",
-                  payment_reference: response.reference,
-                  payment_status: "paid",
-                  order_status: "pending",
-                  shipping_method_name: selectedShipping?.name || "Standard",
-                  shipping_cost: selectedShipping?.base_cost || 0,
-                  customer_id: user?.id ?? null,
-                  notes: `Delivery Address: ${formData.address} | Phone: ${formData.phone}`
-                }])
+                .insert([
+                  {
+                    customer_email: formData.email,
+                    customer_name: `${formData.firstName} ${formData.lastName}`,
+                    total_amount: total,
+                    currency: "NGN",
+                    payment_method: "flutterwave",
+                    payment_reference: paymentReference,
+                    payment_status: "paid",
+                    order_status: "pending",
+                    shipping_method_name: selectedShipping?.name || "Standard",
+                    shipping_cost: selectedShipping?.base_cost || 0,
+                    customer_id: user?.id ?? null,
+                    notes: `Delivery Address: ${formData.address} | Phone: ${formData.phone} | FLW Transaction ID: ${transactionId}`,
+                  },
+                ])
                 .select()
                 .single();
 
               if (orderError || !orderData) {
                 console.error("Order database insertion failure:", orderError);
-                alert("Order save failed. Contact support with reference: " + response.reference);
+                alert(
+                  "Order save failed. Contact support with reference: " +
+                    paymentReference
+                );
                 return;
               }
 
-              // 2. FIXED: Removed 'subtotal' column data injection & addressed property 'id' missing warning
+              // 2. Insert order items
               const orderItemsPayload = cart.map((item: any) => ({
                 order_id: orderData.id,
-                product_id: item.productId || item.product_id || null, 
+                product_id: item.productId || item.product_id || null,
                 product_name: item.productName,
                 sku_name: item.skuName || "Standard",
                 price: item.price,
-                quantity: item.quantity
+                quantity: item.quantity,
               }));
 
               const { error: itemsError } = await supabase
@@ -182,20 +219,25 @@ export default function CheckoutPage() {
                 .insert(orderItemsPayload);
 
               if (itemsError) {
-                console.error("Order items failed to save securely:", itemsError);
+                console.error("Order items failed to save:", itemsError);
               }
 
-              // 3. Decrement Inventory Status Safely
+              // 3. Decrement inventory
               const stockResults = await Promise.allSettled(
-                cart.map((item) => handleStockDecrement(item.skuId, item.quantity))
+                cart.map((item) =>
+                  handleStockDecrement(item.skuId, item.quantity)
+                )
               );
               stockResults.forEach((result, i) => {
                 if (result.status === "rejected") {
-                  console.error(`Stock decrement failed for SKU ${cart[i].skuId}:`, result.reason);
+                  console.error(
+                    `Stock decrement failed for SKU ${cart[i].skuId}:`,
+                    result.reason
+                  );
                 }
               });
 
-              // 4. Fire Internal Email Handlers
+              // 4. Send confirmation email
               try {
                 await fetch("/api/send-email", {
                   method: "POST",
@@ -209,9 +251,10 @@ export default function CheckoutPage() {
                       phone: formData.phone,
                       total_amount: total,
                       shipping_cost: selectedShipping?.base_cost || 0,
-                      shipping_method_name: selectedShipping?.name || "Standard",
+                      shipping_method_name:
+                        selectedShipping?.name || "Standard",
                       items: cart,
-                      payment_reference: response.reference,
+                      payment_reference: paymentReference,
                     },
                   }),
                 });
@@ -223,15 +266,15 @@ export default function CheckoutPage() {
               router.push(user ? "/account" : "/");
             } catch (err) {
               console.error("Post-payment sequence error:", err);
-              alert("An error occurred after payment. Reference: " + response.reference);
+              alert(
+                "An error occurred after payment. Please contact support."
+              );
             }
           })();
         },
       });
-
-      handler.openIframe();
     } catch (error) {
-      console.error("Paystack setup error:", error);
+      console.error("Flutterwave setup error:", error);
       alert("Failed to initialize payment. Please try again.");
       setLoading(false);
     }
@@ -239,36 +282,51 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-20 bg-brand-bg text-brand-text">
-      <Link href="/" className="flex items-center gap-2 text-xs font-black uppercase text-brand-muted mb-8 hover:text-brand-text">
+      <Link
+        href="/"
+        className="flex items-center gap-2 text-xs font-black uppercase text-brand-muted mb-8 hover:text-brand-text"
+      >
         <ChevronLeft size={14} /> Back to Store
       </Link>
 
       {user && (
         <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-brand-muted bg-brand-surface px-5 py-3 rounded-2xl mb-8 w-fit">
           <User size={13} />
-          Checking out as <span className="text-brand-text">{user.email}</span> — order will appear in your account
+          Checking out as{" "}
+          <span className="text-brand-text">{user.email}</span> — order will
+          appear in your account
         </div>
       )}
 
-      <form onSubmit={handleCheckout} className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+      <form
+        onSubmit={handleCheckout}
+        className="grid grid-cols-1 lg:grid-cols-2 gap-16"
+      >
+        {/* LEFT: Form */}
         <div className="space-y-12">
           {/* Delivery Details */}
           <section className="space-y-4">
-            <h2 className="text-xs font-black uppercase tracking-widest text-brand-muted">01. Delivery Details</h2>
+            <h2 className="text-xs font-black uppercase tracking-widest text-brand-muted">
+              01. Delivery Details
+            </h2>
             <div className="grid grid-cols-2 gap-4">
               <input
                 required
                 placeholder="First Name"
                 value={formData.firstName}
                 className="p-4 bg-brand-surface rounded-2xl outline-none border border-transparent focus:border-brand-text"
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, firstName: e.target.value })
+                }
               />
               <input
                 required
                 placeholder="Last Name"
                 value={formData.lastName}
                 className="p-4 bg-brand-surface rounded-2xl outline-none border border-transparent focus:border-brand-text"
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, lastName: e.target.value })
+                }
               />
             </div>
             <input
@@ -277,7 +335,9 @@ export default function CheckoutPage() {
               placeholder="Email"
               value={formData.email}
               className="w-full p-4 bg-brand-surface rounded-2xl outline-none border border-transparent focus:border-brand-text"
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
             />
             <input
               required
@@ -285,7 +345,9 @@ export default function CheckoutPage() {
               placeholder="Phone Number"
               value={formData.phone}
               className="w-full p-4 bg-brand-surface rounded-2xl outline-none border border-transparent focus:border-brand-text"
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
             />
             <textarea
               required
@@ -293,20 +355,26 @@ export default function CheckoutPage() {
               value={formData.address}
               className="w-full p-4 bg-brand-surface rounded-2xl outline-none border border-transparent focus:border-brand-text"
               rows={3}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, address: e.target.value })
+              }
             />
           </section>
 
           {/* Shipping Method */}
           <section className="space-y-4">
-            <h2 className="text-xs font-black uppercase tracking-widest text-brand-muted">02. Shipping Method</h2>
+            <h2 className="text-xs font-black uppercase tracking-widest text-brand-muted">
+              02. Shipping Method
+            </h2>
             {shippingMethods
               .filter((m) => m.is_active !== false)
               .map((m) => (
                 <label
                   key={m.id}
                   className={`flex justify-between p-5 border-2 rounded-2xl cursor-pointer transition-colors ${
-                    selectedShipping?.id === m.id ? "border-brand-text bg-brand-surface" : "border-brand-border"
+                    selectedShipping?.id === m.id
+                      ? "border-brand-text bg-brand-surface"
+                      : "border-brand-border"
                   }`}
                 >
                   <div className="flex items-center gap-4">
@@ -318,10 +386,14 @@ export default function CheckoutPage() {
                     />
                     <div>
                       <p className="font-black text-sm uppercase">{m.name}</p>
-                      <p className="text-[10px] text-brand-muted font-bold uppercase">{m.estimated_days || "Standard Shipping"}</p>
+                      <p className="text-[10px] text-brand-muted font-bold uppercase">
+                        {m.estimated_days || "Standard Shipping"}
+                      </p>
                     </div>
                   </div>
-                  <p className="font-black">₦{(m.base_cost || 0).toLocaleString()}</p>
+                  <p className="font-black">
+                    ₦{(m.base_cost || 0).toLocaleString()}
+                  </p>
                 </label>
               ))}
           </section>
@@ -331,25 +403,39 @@ export default function CheckoutPage() {
             disabled={loading}
             className="w-full bg-brand-text text-brand-bg py-6 rounded-[2rem] font-black uppercase tracking-widest transition-transform active:scale-95 disabled:opacity-60"
           >
-            {loading ? <Loader2 className="animate-spin mx-auto" /> : `Pay ₦${total.toLocaleString()}`}
+            {loading ? (
+              <Loader2 className="animate-spin mx-auto" />
+            ) : (
+              `Pay ₦${total.toLocaleString()}`
+            )}
           </button>
         </div>
 
-        {/* Order Summary */}
+        {/* RIGHT: Order Summary */}
         <div className="bg-brand-surface p-10 rounded-[3rem] h-fit sticky top-32 border border-brand-border/40">
           <h2 className="text-xl font-black uppercase italic mb-8">Summary</h2>
           <div className="space-y-6">
             {cart.map((item, index) => (
-              <div key={item.cartId || `fallback-${index}`} className="flex justify-between items-start">
+              <div
+                key={item.cartId || `fallback-${index}`}
+                className="flex justify-between items-start"
+              >
                 <div>
                   <p className="font-black uppercase text-sm">
-                    {item.productName} <span className="text-brand-subtle font-bold ml-1">×{item.quantity}</span>
+                    {item.productName}{" "}
+                    <span className="text-brand-subtle font-bold ml-1">
+                      ×{item.quantity}
+                    </span>
                   </p>
                   {item.skuName && item.skuName !== "Standard" && (
-                    <p className="text-[10px] text-brand-muted font-bold uppercase">{item.skuName}</p>
+                    <p className="text-[10px] text-brand-muted font-bold uppercase">
+                      {item.skuName}
+                    </p>
                   )}
                 </div>
-                <p className="font-black text-sm">₦{(item.price * item.quantity).toLocaleString()}</p>
+                <p className="font-black text-sm">
+                  ₦{(item.price * item.quantity).toLocaleString()}
+                </p>
               </div>
             ))}
           </div>
@@ -364,7 +450,9 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between items-end pt-4">
               <span className="font-black text-xl uppercase italic">Total</span>
-              <span className="font-brand-text text-3xl">₦{total.toLocaleString()}</span>
+              <span className="font-brand-text text-3xl">
+                ₦{total.toLocaleString()}
+              </span>
             </div>
           </div>
         </div>

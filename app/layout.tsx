@@ -27,25 +27,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+    >
       <body className="bg-white text-black min-h-screen selection:bg-black selection:text-white">
-
         <AuthProvider>
           <Navbar />
-
-          {/* Page Content */}
-          <main className="pt-20 min-h-screen">
-            {children}
-          </main>
-
+          <main className="pt-20 min-h-screen">{children}</main>
         </AuthProvider>
 
-        {/* Paystack Script */}
+        {/* Flutterwave Script */}
         <Script
-          src="https://js.paystack.co/v1/inline.js"
+          src="https://checkout.flutterwave.com/v3.js"
           strategy="beforeInteractive"
         />
-
       </body>
     </html>
   );

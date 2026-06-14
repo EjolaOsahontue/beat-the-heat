@@ -71,7 +71,7 @@ export default async function GalleryPage() {
           <div>
             <h2 className="text-2xl font-black uppercase italic tracking-tighter">Want the next drop?</h2>
             <p className="text-zinc-500 font-bold mt-2 max-w-2xl">
-              Shop from the product pages after browsing the wall. Checkout is built for fast Paystack payments.
+              Shop from the product pages after browsing the wall. Checkout is built for fast  payments.
             </p>
           </div>
         </div>
