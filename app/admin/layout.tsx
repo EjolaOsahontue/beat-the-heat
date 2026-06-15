@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   FileText,
+  Mail, // 👈 Import Mail icon
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -85,6 +86,16 @@ export default function AdminLayout({
       >
         <Users size={18} />
         Customers
+      </Link>
+
+      {/* 👈 Added Editable Contact Us Messages Panel link */}
+      <Link
+        href="/admin/contacts"
+        onClick={() => setOpen(false)}
+        className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-zinc-900 font-bold uppercase text-xs"
+      >
+        <Mail size={18} />
+        Inquiries Inbox
       </Link>
 
       <Link

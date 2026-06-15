@@ -25,7 +25,6 @@ const openTicketingPopup = (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonEl
   const width = 500;
   const height = 700;
   
-  // Calculate window positions to accurately center the popup
   const left = window.screen.width / 2 - width / 2;
   const top = window.screen.height / 2 - height / 2;
 
@@ -230,7 +229,7 @@ export default function Navbar() {
           <div className="hidden md:flex gap-8 text-sm font-bold uppercase tracking-widest">
             <Link href="/products" className="hover:text-claret transition-colors">Shop</Link>
             
-            {/* Native JavaScript Modal/Popup Override Trigger */}
+            {/* Ticketing Modal Trigger */}
             <a 
               href="https://tix.africa/discover/bththe4th"
               onClick={openTicketingPopup}
@@ -241,11 +240,13 @@ export default function Navbar() {
 
             <Link href="/gallery" className="hover:text-claret transition-colors">Gallery</Link>
             <Link href="/about" className="hover:text-claret transition-colors">About</Link>
+            
+            {/* Added Contact Route Link */}
+            <Link href="/contacts" className="hover:text-claret transition-colors">Contact</Link>
           </div>
 
           {/* Right Icons */}
           <div className="flex items-center gap-4">
-            {/* User Dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button onClick={handleUserClick} className="flex items-center gap-2 hover:text-claret transition-colors">
                 <User size={20} />
@@ -291,14 +292,13 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu Nav */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-border px-6 py-6 flex flex-col gap-5">
             <Link href="/products" onClick={() => setMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest text-black hover:text-claret transition-colors">
               Shop
             </Link>
             
-            {/* Native Mobile Click Override Trigger */}
             <button
               onClick={(e) => {
                 setMobileMenuOpen(false);
@@ -315,11 +315,15 @@ export default function Navbar() {
             <Link href="/about" onClick={() => setMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest text-black hover:text-claret transition-colors">
               About
             </Link>
+            
+            {/* Added Contact Route Mobile Link */}
+            <Link href="/contact" onClick={() => setMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest text-black hover:text-claret transition-colors">
+              Contact
+            </Link>
           </div>
         )}
       </header>
 
-      {/* Drawers / Modals rendering */}
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
     </>
