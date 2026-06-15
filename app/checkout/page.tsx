@@ -7,12 +7,17 @@ import { useCart } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { ChevronLeft, Loader2, User } from "lucide-react";
+import PolicyModal from "@/components/PolicyModal";
 
 declare global {
   interface Window {
     FlutterwaveCheckout: any;
+    PaystackPop: any;
   }
 }
+
+// ⬇️ Toggle this to switch providers: "flutterwave" | "paystack"
+const PAYMENT_PROVIDER: "flutterwave" | "paystack" = "flutterwave";
 
 const handleStockDecrement = async (skuId: string, amountBought: number) => {
   const { data: sku, error: fetchError } = await supabase
@@ -37,6 +42,102 @@ const handleStockDecrement = async (skuId: string, amountBought: number) => {
   if (updateError) throw new Error("Stock update failed.");
 };
 
+const postPaymentActions = async ({
+  paymentReference,
+  transactionId,
+  formData,
+  cart,
+  total,
+  selectedShipping,
+  user,
+  provider,
+  clearCart,
+  router,
+}: any) => {
+  // 1. Insert order
+  const { data: orderData, error: orderError } = await supabase
+    .from("orders")
+    .insert([
+      {
+        customer_email: formData.email,
+        customer_name: `${formData.firstName} ${formData.lastName}`,
+        total_amount: total,
+        currency: "NGN",
+        payment_method: provider,
+        payment_reference: paymentReference,
+        payment_status: "paid",
+        order_status: "pending",
+        shipping_method_name: selectedShipping?.name || "Standard",
+        shipping_cost: selectedShipping?.base_cost || 0,
+        customer_id: user?.id ?? null,
+        notes: `Delivery Address: ${formData.address} | Phone: ${formData.phone}${
+          transactionId ? ` | Transaction ID: ${transactionId}` : ""
+        }`,
+      },
+    ])
+    .select()
+    .single();
+
+  if (orderError || !orderData) {
+    console.error("Order insertion failure:", orderError);
+    alert("Order save failed. Contact support with reference: " + paymentReference);
+    return;
+  }
+
+  // 2. Insert order items
+  const orderItemsPayload = cart.map((item: any) => ({
+    order_id: orderData.id,
+    product_id: item.productId || item.product_id || null,
+    product_name: item.productName,
+    sku_name: item.skuName || "Standard",
+    price: item.price,
+    quantity: item.quantity,
+  }));
+
+  const { error: itemsError } = await supabase
+    .from("order_items")
+    .insert(orderItemsPayload);
+
+  if (itemsError) console.error("Order items failed to save:", itemsError);
+
+  // 3. Decrement inventory
+  const stockResults = await Promise.allSettled(
+    cart.map((item: any) => handleStockDecrement(item.skuId, item.quantity))
+  );
+  stockResults.forEach((result, i) => {
+    if (result.status === "rejected") {
+      console.error(`Stock decrement failed for SKU ${cart[i].skuId}:`, (result as any).reason);
+    }
+  });
+
+  // 4. Send confirmation email
+  try {
+    await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "paid",
+        order: {
+          customer_email: formData.email,
+          customer_name: `${formData.firstName} ${formData.lastName}`,
+          address: formData.address,
+          phone: formData.phone,
+          total_amount: total,
+          shipping_cost: selectedShipping?.base_cost || 0,
+          shipping_method_name: selectedShipping?.name || "Standard",
+          items: cart,
+          payment_reference: paymentReference,
+        },
+      }),
+    });
+  } catch (emailErr) {
+    console.error("Email endpoint failure:", emailErr);
+  }
+
+  clearCart();
+  router.push(user ? "/account" : "/");
+};
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { cart, clearCart } = useCart();
@@ -46,6 +147,7 @@ export default function CheckoutPage() {
   const [selectedShipping, setSelectedShipping] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [showPolicies, setShowPolicies] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -57,6 +159,7 @@ export default function CheckoutPage() {
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const total = subtotal + (selectedShipping?.base_cost || 0);
 
+  // Pre-fill form for logged-in users
   useEffect(() => {
     if (user) {
       const fullName = user.user_metadata?.full_name || "";
@@ -70,21 +173,35 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
+  // Load payment script based on active provider
   useEffect(() => {
-    if (typeof window !== "undefined" && window.FlutterwaveCheckout) {
+    const scriptSrc =
+      PAYMENT_PROVIDER === "flutterwave"
+        ? "https://checkout.flutterwave.com/v3.js"
+        : "https://js.paystack.co/v1/inline.js";
+
+    const isLoaded =
+      PAYMENT_PROVIDER === "flutterwave"
+        ? !!window.FlutterwaveCheckout
+        : !!window.PaystackPop;
+
+    if (isLoaded) {
       setScriptLoaded(true);
       return;
     }
+
     const script = document.createElement("script");
-    script.src = "https://checkout.flutterwave.com/v3.js";
+    script.src = scriptSrc;
     script.async = true;
     script.onload = () => setScriptLoaded(true);
     document.body.appendChild(script);
+
     return () => {
       if (document.body.contains(script)) document.body.removeChild(script);
     };
   }, []);
 
+  // Fetch shipping methods
   useEffect(() => {
     const fetchShipping = async () => {
       const { data, error } = await supabase
@@ -105,10 +222,111 @@ export default function CheckoutPage() {
     fetchShipping();
   }, []);
 
+  const handleFlutterwaveCheckout = () => {
+    const flwKey = process.env.NEXT_PUBLIC_FLW_PUBLIC_KEY;
+    if (!flwKey) {
+      alert("Payment configuration error. Please contact support.");
+      return;
+    }
+
+    window.FlutterwaveCheckout({
+      public_key: flwKey,
+      tx_ref: `BTH-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
+      amount: total,
+      currency: "NGN",
+      payment_options: "card,banktransfer,ussd",
+      customer: {
+        email: formData.email,
+        phone_number: formData.phone,
+        name: `${formData.firstName} ${formData.lastName}`,
+      },
+      customizations: {
+        title: "BTH Apparels",
+        description: `Order of ${cart.length} item(s)`,
+        logo: "/logo.png",
+      },
+      meta: {
+        address: formData.address,
+        items: JSON.stringify(cart),
+      },
+      onclose: () => setLoading(false),
+      callback: (response: any) => {
+        if (response.status !== "successful" && response.status !== "completed") {
+          setLoading(false);
+          alert("Payment was not completed. Please try again.");
+          return;
+        }
+        setLoading(false);
+        postPaymentActions({
+          paymentReference: response.tx_ref,
+          transactionId: String(response.transaction_id),
+          formData,
+          cart,
+          total,
+          selectedShipping,
+          user,
+          provider: "flutterwave",
+          clearCart,
+          router,
+        }).catch((err) => {
+          console.error("Post-payment error:", err);
+          alert("An error occurred after payment. Please contact support.");
+        });
+      },
+    });
+  };
+
+  const handlePaystackCheckout = () => {
+    const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
+    if (!paystackKey) {
+      alert("Payment configuration error. Please contact support.");
+      return;
+    }
+
+    const handler = window.PaystackPop.setup({
+      key: paystackKey,
+      email: formData.email,
+      amount: Math.round(total * 100),
+      currency: "NGN",
+      metadata: {
+        customer_name: `${formData.firstName} ${formData.lastName}`,
+        address: formData.address,
+        phone: formData.phone,
+        items: cart,
+      },
+      onClose: () => setLoading(false),
+      callback: (response: any) => {
+        setLoading(false);
+        postPaymentActions({
+          paymentReference: response.reference,
+          transactionId: null,
+          formData,
+          cart,
+          total,
+          selectedShipping,
+          user,
+          provider: "paystack",
+          clearCart,
+          router,
+        }).catch((err) => {
+          console.error("Post-payment error:", err);
+          alert("An error occurred after payment. Reference: " + response.reference);
+        });
+      },
+    });
+
+    handler.openIframe();
+  };
+
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!scriptLoaded || !window.FlutterwaveCheckout) {
+    const isReady =
+      PAYMENT_PROVIDER === "flutterwave"
+        ? scriptLoaded && window.FlutterwaveCheckout
+        : scriptLoaded && window.PaystackPop;
+
+    if (!isReady) {
       alert("Payment gateway is still loading. Please try again.");
       return;
     }
@@ -124,157 +342,16 @@ export default function CheckoutPage() {
       return;
     }
 
-    const flwKey = process.env.NEXT_PUBLIC_FLW_PUBLIC_KEY;
-    if (!flwKey) {
-      alert("Payment configuration error. Please contact support.");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      window.FlutterwaveCheckout({
-        public_key: flwKey,
-        tx_ref: `BTH-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
-        amount: total,
-        currency: "NGN",
-        payment_options: "card,banktransfer,ussd",
-        customer: {
-          email: formData.email,
-          phone_number: formData.phone,
-          name: `${formData.firstName} ${formData.lastName}`,
-        },
-        customizations: {
-          title: "BTH Apparels",
-          description: `Order of ${cart.length} item(s)`,
-          logo: "/logo.png",
-        },
-        meta: {
-          address: formData.address,
-          items: JSON.stringify(cart),
-        },
-        onclose: () => {
-          setLoading(false);
-        },
-        callback: (response: any) => {
-          if (
-            response.status !== "successful" &&
-            response.status !== "completed"
-          ) {
-            setLoading(false);
-            alert("Payment was not completed. Please try again.");
-            return;
-          }
-
-          setLoading(false);
-
-          (async () => {
-            try {
-              const paymentReference = response.tx_ref;
-              const transactionId = String(response.transaction_id);
-
-              // 1. Insert into orders table
-              const { data: orderData, error: orderError } = await supabase
-                .from("orders")
-                .insert([
-                  {
-                    customer_email: formData.email,
-                    customer_name: `${formData.firstName} ${formData.lastName}`,
-                    total_amount: total,
-                    currency: "NGN",
-                    payment_method: "flutterwave",
-                    payment_reference: paymentReference,
-                    payment_status: "paid",
-                    order_status: "pending",
-                    shipping_method_name: selectedShipping?.name || "Standard",
-                    shipping_cost: selectedShipping?.base_cost || 0,
-                    customer_id: user?.id ?? null,
-                    notes: `Delivery Address: ${formData.address} | Phone: ${formData.phone} | FLW Transaction ID: ${transactionId}`,
-                  },
-                ])
-                .select()
-                .single();
-
-              if (orderError || !orderData) {
-                console.error("Order database insertion failure:", orderError);
-                alert(
-                  "Order save failed. Contact support with reference: " +
-                    paymentReference
-                );
-                return;
-              }
-
-              // 2. Insert order items
-              const orderItemsPayload = cart.map((item: any) => ({
-                order_id: orderData.id,
-                product_id: item.productId || item.product_id || null,
-                product_name: item.productName,
-                sku_name: item.skuName || "Standard",
-                price: item.price,
-                quantity: item.quantity,
-              }));
-
-              const { error: itemsError } = await supabase
-                .from("order_items")
-                .insert(orderItemsPayload);
-
-              if (itemsError) {
-                console.error("Order items failed to save:", itemsError);
-              }
-
-              // 3. Decrement inventory
-              const stockResults = await Promise.allSettled(
-                cart.map((item) =>
-                  handleStockDecrement(item.skuId, item.quantity)
-                )
-              );
-              stockResults.forEach((result, i) => {
-                if (result.status === "rejected") {
-                  console.error(
-                    `Stock decrement failed for SKU ${cart[i].skuId}:`,
-                    result.reason
-                  );
-                }
-              });
-
-              // 4. Send confirmation email
-              try {
-                await fetch("/api/send-email", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    type: "paid",
-                    order: {
-                      customer_email: formData.email,
-                      customer_name: `${formData.firstName} ${formData.lastName}`,
-                      address: formData.address,
-                      phone: formData.phone,
-                      total_amount: total,
-                      shipping_cost: selectedShipping?.base_cost || 0,
-                      shipping_method_name:
-                        selectedShipping?.name || "Standard",
-                      items: cart,
-                      payment_reference: paymentReference,
-                    },
-                  }),
-                });
-              } catch (emailErr) {
-                console.error("Email processing endpoint failure:", emailErr);
-              }
-
-              clearCart();
-              router.push(user ? "/account" : "/");
-            } catch (err) {
-              console.error("Post-payment sequence error:", err);
-              alert(
-                "An error occurred after payment. Please contact support."
-              );
-            }
-          })();
-        },
-      });
+      if (PAYMENT_PROVIDER === "flutterwave") {
+        handleFlutterwaveCheckout();
+      } else {
+        handlePaystackCheckout();
+      }
     } catch (error) {
-      console.error("Flutterwave setup error:", error);
+      console.error("Payment setup error:", error);
       alert("Failed to initialize payment. Please try again.");
       setLoading(false);
     }
@@ -398,17 +475,31 @@ export default function CheckoutPage() {
               ))}
           </section>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-brand-text text-brand-bg py-6 rounded-[2rem] font-black uppercase tracking-widest transition-transform active:scale-95 disabled:opacity-60"
-          >
-            {loading ? (
-              <Loader2 className="animate-spin mx-auto" />
-            ) : (
-              `Pay ₦${total.toLocaleString()}`
-            )}
-          </button>
+          {/* Policy notice + Pay button */}
+          <div className="space-y-4">
+            <p className="text-sm text-red-500 font-black uppercase tracking-wider text-center">
+              By placing your order you agree to our{" "}
+              <button
+                type="button"
+                onClick={() => setShowPolicies(true)}
+                className="underline underline-offset-4 hover:text-red-700 transition-colors"
+              >
+                STORE POLICIES
+              </button>
+            </p>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-brand-text text-brand-bg py-6 rounded-[2rem] font-black uppercase tracking-widest transition-transform active:scale-95 disabled:opacity-60"
+            >
+              {loading ? (
+                <Loader2 className="animate-spin mx-auto" />
+              ) : (
+                `Pay ₦${total.toLocaleString()}`
+              )}
+            </button>
+          </div>
         </div>
 
         {/* RIGHT: Order Summary */}
@@ -446,7 +537,9 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between text-xs font-bold text-brand-muted uppercase">
               <span>Shipping</span>
-              <span>₦{(selectedShipping?.base_cost || 0).toLocaleString()}</span>
+              <span>
+                ₦{(selectedShipping?.base_cost || 0).toLocaleString()}
+              </span>
             </div>
             <div className="flex justify-between items-end pt-4">
               <span className="font-black text-xl uppercase italic">Total</span>
@@ -457,6 +550,9 @@ export default function CheckoutPage() {
           </div>
         </div>
       </form>
+
+      {/* Policy Modal */}
+      {showPolicies && <PolicyModal onClose={() => setShowPolicies(false)} />}
     </div>
   );
 }

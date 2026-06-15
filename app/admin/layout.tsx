@@ -13,6 +13,7 @@ import {
   Layers,
   Menu,
   X,
+  FileText,
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -86,6 +87,15 @@ export default function AdminLayout({
         Customers
       </Link>
 
+      <Link
+        href="/admin/policies"
+        onClick={() => setOpen(false)}
+        className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-zinc-900 font-bold uppercase text-xs"
+      >
+        <FileText size={18} />
+        Policies
+      </Link>
+
       <hr className="border-zinc-800 my-6" />
 
       <Link
@@ -104,7 +114,6 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-white flex">
       {/* Desktop Sidebar */}
-
       <aside className="hidden lg:flex w-72 bg-black text-white p-8 sticky top-0 h-screen flex-col justify-between">
         <div>
           <h2 className="text-3xl font-black italic mb-12">
@@ -112,60 +121,44 @@ export default function AdminLayout({
             <br />
             ADMIN
           </h2>
-
           <nav>{links}</nav>
         </div>
       </aside>
 
       {/* Mobile Header */}
-
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-black text-white flex items-center justify-between px-4 z-50">
-
-        <h2 className="font-black text-lg italic">
-          BTH+ ADMIN
-        </h2>
-
+        <h2 className="font-black text-lg italic">BTH+ ADMIN</h2>
         <button onClick={() => setOpen(true)}>
           <Menu size={28} />
         </button>
-
       </div>
 
       {/* Overlay */}
-
       {open && (
         <>
           <div
             className="fixed inset-0 bg-black/60 z-40"
             onClick={() => setOpen(false)}
           />
-
           <aside className="fixed top-0 left-0 w-72 h-screen bg-black text-white p-8 z-50 overflow-y-auto">
-
             <div className="flex justify-between items-center mb-8">
               <h2 className="font-black text-2xl italic">
                 BTH+
                 <br />
                 ADMIN
               </h2>
-
               <button onClick={() => setOpen(false)}>
                 <X />
               </button>
             </div>
-
             <nav>{links}</nav>
-
           </aside>
         </>
       )}
 
       {/* Main */}
-
       <main className="flex-1 pt-16 lg:pt-0">
-        <div className="min-h-screen bg-zinc-50">
-          {children}
-        </div>
+        <div className="min-h-screen bg-zinc-50">{children}</div>
       </main>
     </div>
   );

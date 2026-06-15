@@ -37,9 +37,14 @@ export default function RootLayout({
           <main className="pt-20 min-h-screen">{children}</main>
         </AuthProvider>
 
-        {/* Flutterwave Script */}
+        {/* Flutterwave */}
         <Script
           src="https://checkout.flutterwave.com/v3.js"
+          strategy="beforeInteractive"
+        />
+        {/* Paystack */}
+        <Script
+          src="https://js.paystack.co/v1/inline.js"
           strategy="beforeInteractive"
         />
       </body>
