@@ -17,7 +17,7 @@ declare global {
 }
 
 // ⬇️ Toggle this to switch providers: "flutterwave" | "paystack"
-const PAYMENT_PROVIDER: "flutterwave" | "paystack" = "flutterwave";
+const PAYMENT_PROVIDER: "flutterwave" | "paystack" = "paystack";
 
 const handleStockDecrement = async (skuId: string, amountBought: number) => {
   const { data: sku, error: fetchError } = await supabase
