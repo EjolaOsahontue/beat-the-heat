@@ -95,7 +95,7 @@ export default function AdminLayout({
         className="flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-zinc-900 font-bold uppercase text-xs"
       >
         <Mail size={18} />
-        Inquiries Inbox
+        CONTACTS
       </Link>
 
       <Link

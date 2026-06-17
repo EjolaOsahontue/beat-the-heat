@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCart } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { ChevronLeft, Loader2, User } from "lucide-react";
+import { ChevronLeft, Loader2, User, ChevronDown } from "lucide-react";
 import PolicyModal from "@/components/PolicyModal";
 
 declare global {
@@ -16,7 +16,6 @@ declare global {
   }
 }
 
-// ⬇️ Toggle this to switch providers: "flutterwave" | "paystack"
 const PAYMENT_PROVIDER: "flutterwave" | "paystack" = "paystack";
 
 const handleStockDecrement = async (skuId: string, amountBought: number) => {
@@ -54,7 +53,6 @@ const postPaymentActions = async ({
   clearCart,
   router,
 }: any) => {
-  // 1. Insert order
   const { data: orderData, error: orderError } = await supabase
     .from("orders")
     .insert([
@@ -68,7 +66,7 @@ const postPaymentActions = async ({
         payment_status: "paid",
         order_status: "pending",
         shipping_method_name: selectedShipping?.name || "Standard",
-        shipping_cost: selectedShipping?.base_cost || 0,
+        shipping_cost: Number(selectedShipping?.base_cost) || 0,
         customer_id: user?.id ?? null,
         notes: `Delivery Address: ${formData.address} | Phone: ${formData.phone}${
           transactionId ? ` | Transaction ID: ${transactionId}` : ""
@@ -84,7 +82,6 @@ const postPaymentActions = async ({
     return;
   }
 
-  // 2. Insert order items
   const orderItemsPayload = cart.map((item: any) => ({
     order_id: orderData.id,
     product_id: item.productId || item.product_id || null,
@@ -100,7 +97,6 @@ const postPaymentActions = async ({
 
   if (itemsError) console.error("Order items failed to save:", itemsError);
 
-  // 3. Decrement inventory
   const stockResults = await Promise.allSettled(
     cart.map((item: any) => handleStockDecrement(item.skuId, item.quantity))
   );
@@ -110,7 +106,6 @@ const postPaymentActions = async ({
     }
   });
 
-  // 4. Send confirmation email
   try {
     await fetch("/api/send-email", {
       method: "POST",
@@ -118,14 +113,14 @@ const postPaymentActions = async ({
       body: JSON.stringify({
         type: "paid",
         order: {
-          id: orderData.id, // ✅ fixed: needed for shortId in email subject
+          id: orderData.id,
           customer_email: formData.email,
           customer_name: `${formData.firstName} ${formData.lastName}`,
           address: formData.address,
           phone: formData.phone,
           total_amount: total,
           shipping_method_name: selectedShipping?.name || "Standard",
-          items: cart.map((item: any) => ({ // ✅ fixed: mapped to expected shape
+          items: cart.map((item: any) => ({
             quantity: item.quantity,
             productName: item.productName,
             skuName: item.skuName,
@@ -152,6 +147,9 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [showPolicies, setShowPolicies] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -161,9 +159,19 @@ export default function CheckoutPage() {
   });
 
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const total = subtotal + (selectedShipping?.base_cost || 0);
+  const total = subtotal + (Number(selectedShipping?.base_cost) || 0);
 
-  // Pre-fill form for logged-in users
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   useEffect(() => {
     if (user) {
       const fullName = user.user_metadata?.full_name || "";
@@ -177,7 +185,6 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
-  // Load payment script based on active provider
   useEffect(() => {
     const scriptSrc =
       PAYMENT_PROVIDER === "flutterwave"
@@ -205,26 +212,42 @@ export default function CheckoutPage() {
     };
   }, []);
 
-  // Fetch shipping methods
+  const fetchShipping = async () => {
+    const { data, error } = await supabase
+      .from("shipping_methods")
+      .select("*")
+      .eq("is_active", true);
+
+    if (error) {
+      console.error("Error fetching shipping methods:", error);
+      return null;
+    }
+    return data || [];
+  };
+
   useEffect(() => {
-    const fetchShipping = async () => {
-      const { data, error } = await supabase
-        .from("shipping_methods")
-        .select("*")
-        .order("base_cost", { ascending: true });
-
-      if (error) {
-        console.error("Error fetching shipping methods:", error);
-        return;
-      }
-
+    const initShipping = async () => {
+      const data = await fetchShipping();
       if (data && data.length > 0) {
         setShippingMethods(data);
         setSelectedShipping(data[0]);
       }
     };
-    fetchShipping();
+    initShipping();
   }, []);
+
+  useEffect(() => {
+    const query = formData.address.trim().toLowerCase();
+    if (query.length < 3) return;
+
+    const matchedMethod = shippingMethods.find((m) => {
+      return m.name?.toLowerCase().includes(query) || query.includes(m.name?.toLowerCase());
+    });
+
+    if (matchedMethod) {
+      setSelectedShipping(matchedMethod);
+    }
+  }, [formData.address, shippingMethods]);
 
   const handleFlutterwaveCheckout = () => {
     const flwKey = process.env.NEXT_PUBLIC_FLW_PUBLIC_KEY;
@@ -357,7 +380,7 @@ export default function CheckoutPage() {
     } catch (error) {
       console.error("Payment setup error:", error);
       alert("Failed to initialize payment. Please try again.");
-      setLoading(false);
+      return;
     }
   };
 
@@ -430,53 +453,90 @@ export default function CheckoutPage() {
                 setFormData({ ...formData, phone: e.target.value })
               }
             />
-            <textarea
-              required
-              placeholder="Shipping Address"
-              value={formData.address}
-              className="w-full p-4 bg-brand-surface rounded-2xl outline-none border border-transparent focus:border-brand-text"
-              rows={3}
-              onChange={(e) =>
-                setFormData({ ...formData, address: e.target.value })
-              }
-            />
+            
+            <div className="w-full">
+              <input
+                required
+                type="text"
+                placeholder="Delivery Address (e.g. 15 Admiralty Way, Lekki, Lagos)"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="w-full p-4 bg-brand-surface rounded-2xl outline-none border border-transparent focus:border-brand-text text-sm"
+              />
+            </div>
           </section>
 
-          {/* Shipping Method */}
+          {/* Shipping Method Custom Selector */}
           <section className="space-y-4">
             <h2 className="text-xs font-black uppercase tracking-widest text-brand-muted">
               02. Shipping Method
             </h2>
-            {shippingMethods
-              .filter((m) => m.is_active !== false)
-              .map((m) => (
-                <label
-                  key={m.id}
-                  className={`flex justify-between p-5 border-2 rounded-2xl cursor-pointer transition-colors ${
-                    selectedShipping?.id === m.id
-                      ? "border-brand-text bg-brand-surface"
-                      : "border-brand-border"
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <input
-                      type="radio"
-                      checked={selectedShipping?.id === m.id}
-                      className="accent-brand-text"
-                      onChange={() => setSelectedShipping(m)}
-                    />
-                    <div>
-                      <p className="font-black text-sm uppercase">{m.name}</p>
-                      <p className="text-[10px] text-brand-muted font-bold uppercase">
-                        {m.estimated_days || "Standard Shipping"}
-                      </p>
-                    </div>
+            <div className="relative w-full" ref={dropdownRef}>
+              {/* Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full p-5 bg-brand-surface border-2 text-left rounded-2xl flex justify-between items-center outline-none font-black text-sm uppercase tracking-wider text-brand-text cursor-pointer transition-all ${
+                  isOpen ? 'border-brand-text shadow-sm' : 'border-brand-border'
+                }`}
+              >
+                {selectedShipping ? (
+                  <div className="flex flex-col gap-0.5 items-start">
+                    <span className="font-black text-sm text-brand-text">
+                      {selectedShipping.name}
+                    </span>
+                    <span className="text-[10px] text-brand-muted font-bold tracking-normal">
+                      {selectedShipping.estimated_days || "Standard"}
+                    </span>
                   </div>
-                  <p className="font-black">
-                    ₦{(m.base_cost || 0).toLocaleString()}
-                  </p>
-                </label>
-              ))}
+                ) : (
+                  <span className="text-brand-muted font-bold text-sm">Select shipping method</span>
+                )}
+                
+                <div className="flex items-center gap-4">
+                  {selectedShipping && (
+                    <span className="font-black text-sm text-brand-text">
+                      ₦{Number(selectedShipping.base_cost || 0).toLocaleString()}
+                    </span>
+                  )}
+                  <ChevronDown 
+                    size={18} 
+                    className={`text-brand-muted transition-transform duration-200 ${isOpen ? 'rotate-180 text-brand-text' : ''}`} 
+                  />
+                </div>
+              </button>
+
+              {/* Custom Dropdown Flyout Panel */}
+              {isOpen && (
+                <div className="absolute left-0 right-0 mt-2 bg-brand-surface border-2 border-brand-text rounded-2xl z-50 overflow-hidden max-h-64 overflow-y-auto shadow-xl divide-y divide-brand-border/40">
+                  {shippingMethods.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedShipping(m);
+                        setIsOpen(false);
+                      }}
+                      className={`w-full px-5 py-4 text-left flex justify-between items-center transition-colors hover:bg-brand-text/5 ${
+                        selectedShipping?.id === m.id ? 'bg-brand-text/[0.02]' : ''
+                      }`}
+                    >
+                      <div className="flex flex-col gap-0.5 items-start">
+                        <span className={`text-sm uppercase tracking-wider ${selectedShipping?.id === m.id ? 'font-black text-brand-text' : 'font-bold text-brand-text/90'}`}>
+                          {m.name}
+                        </span>
+                        <span className="text-[10px] text-brand-muted font-medium tracking-normal">
+                          {m.estimated_days || "Standard"}
+                        </span>
+                      </div>
+                      <span className="font-black text-sm text-brand-text">
+                        ₦{Number(m.base_cost || 0).toLocaleString()}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
 
           {/* Policy notice + Pay button */}
@@ -542,7 +602,7 @@ export default function CheckoutPage() {
             <div className="flex justify-between text-xs font-bold text-brand-muted uppercase">
               <span>Shipping</span>
               <span>
-                ₦{(selectedShipping?.base_cost || 0).toLocaleString()}
+                ₦{(Number(selectedShipping?.base_cost) || 0).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between items-end pt-4">
