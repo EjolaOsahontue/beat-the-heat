@@ -118,15 +118,19 @@ const postPaymentActions = async ({
       body: JSON.stringify({
         type: "paid",
         order: {
+          id: orderData.id, // ✅ fixed: needed for shortId in email subject
           customer_email: formData.email,
           customer_name: `${formData.firstName} ${formData.lastName}`,
           address: formData.address,
           phone: formData.phone,
           total_amount: total,
-          shipping_cost: selectedShipping?.base_cost || 0,
           shipping_method_name: selectedShipping?.name || "Standard",
-          items: cart,
-          payment_reference: paymentReference,
+          items: cart.map((item: any) => ({ // ✅ fixed: mapped to expected shape
+            quantity: item.quantity,
+            productName: item.productName,
+            skuName: item.skuName,
+            price: item.price,
+          })),
         },
       }),
     });
