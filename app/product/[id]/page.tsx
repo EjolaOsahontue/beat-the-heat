@@ -1,12 +1,10 @@
 'use client';
 
- 
-
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useCart } from '@/lib/store';
-import { ShoppingBag, ArrowLeft, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, ChevronLeft, ChevronRight, Check, Grid } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ProductPage() {
@@ -21,6 +19,9 @@ export default function ProductPage() {
   const [currentSku, setCurrentSku] = useState<any>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [addedFeedback, setAddedFeedback] = useState(false);
+
+  // Size chart switching scale local system state
+  const [activeSizeSystem, setActiveSizeSystem] = useState<string>('US');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -152,6 +153,10 @@ export default function ProductPage() {
         ? 'low'
         : 'ok'
       : 'out';
+
+  // Extract size chart configurations safely
+  const chart = product?.size_chart;
+  const showChart = chart && chart.columns && chart.columns.length > 0;
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-20 lg:py-40 flex flex-col lg:grid lg:grid-cols-2 gap-12 lg:gap-32 bg-brand-bg text-brand-text">
@@ -357,6 +362,80 @@ export default function ProductPage() {
             );
           })}
         </div>
+
+        {/* ─── CONDITIONAL DYNAMIC LOCALIZED SIZE CHART ─── */}
+        {showChart && (
+          <div className="bg-brand-surface border border-brand-border rounded-3xl p-6 space-y-4 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-brand-border pb-3">
+              <div className="flex items-center gap-2">
+                <Grid size={14} className="text-brand-muted" />
+                <div>
+                  <h3 className="text-[11px] font-black uppercase tracking-wider">SIZE CHART</h3>
+                  <p className="text-[9px] text-brand-muted font-bold uppercase tracking-tight">Sizing Conversions</p>
+                </div>
+              </div>
+
+              {/* Sizing scale system tab filters */}
+              <div className="flex bg-brand-bg border border-brand-border p-0.5 rounded-xl">
+                {chart.supportedSystems?.map((sys: string) => (
+                  <button
+                    key={sys}
+                    type="button"
+                    onClick={() => setActiveSizeSystem(sys)}
+                    className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-all ${
+                      activeSizeSystem === sys 
+                        ? 'bg-brand-text text-brand-bg shadow-sm' 
+                        : 'text-brand-muted hover:text-brand-text'
+                    }`}
+                  >
+                    {sys}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Matrix Sheet Display */}
+            <div className="overflow-x-auto max-h-[250px] overflow-y-auto scrollbar-hide rounded-xl border border-brand-border bg-brand-bg">
+              <table className="w-full text-left border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-brand-surface text-[9px] uppercase font-black text-brand-muted tracking-widest border-b border-brand-border sticky top-0 z-10">
+                    <th className="p-3 font-black text-brand-text bg-brand-surface">Size</th>
+                    {chart.columns
+                      .filter((col: string) => col !== 'Base Size')
+                      .map((col: string) => (
+                        <th key={col} className="p-3 font-black">{col}</th>
+                      ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-brand-border">
+                  {chart.rows.map((row: any, rIndex: number) => {
+                    const baseSizeVal = row['Base Size'] || '';
+                    // Convert displayed label cell if a secondary scale configuration map is chosen
+                    const displaySizeLabel =
+                      activeSizeSystem === 'US'
+                        ? baseSizeVal
+                        : chart.systemMappings?.[activeSizeSystem]?.[baseSizeVal] || baseSizeVal;
+
+                    return (
+                      <tr key={rIndex} className="hover:bg-brand-surface/40 transition-colors">
+                        <td className="p-3 font-black uppercase text-brand-text bg-brand-surface/30">
+                          {displaySizeLabel || '—'}
+                        </td>
+                        {chart.columns
+                          .filter((col: string) => col !== 'Base Size')
+                          .map((col: string) => (
+                            <td key={col} className="p-3 text-brand-muted font-bold">
+                              {row[col] || '—'}
+                            </td>
+                          ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* ─── ADD TO BAG ─── */}
         <div className="space-y-5 pt-2">
