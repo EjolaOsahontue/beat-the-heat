@@ -12,6 +12,7 @@
     "@getbrevo/brevo": "^5.0.4",
     "@react-google-maps/api": "^2.20.8",
     "@supabase/supabase-js": "^2.105.4",
+    "@vercel/analytics": "^2.0.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.14.0",
     "next": "^16.2.6",
